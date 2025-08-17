@@ -1,24 +1,18 @@
-# main.py
-import os
-from fastapi import FastAPI, HTTPException # type: ignore
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr, Field
-from dotenv import load_dotenv
-from db import query, execute
-from auth import hash_password, verify_password
+from passlib.hash import bcrypt
+from db import q, x
+import os
 
-load_dotenv()
+app = FastAPI(title="Back (registro/login)")
 
-app = FastAPI(title="API Azure SQL (FastAPI)")
-
-# CORS: ajusta los orígenes (para tu front)
-ALLOW_ORIGINS = os.getenv("ALLOW_ORIGINS", "http://localhost:5500,http://127.0.0.1:5500").split(",")
+# CORS: ajusta dominios del front si lo necesitas
+allow = os.getenv("ALLOW_ORIGINS", "http://localhost:5500").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in ALLOW_ORIGINS if o.strip()],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[a.strip() for a in allow if a.strip()],
+    allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
 )
 
 class RegisterIn(BaseModel):
@@ -32,28 +26,29 @@ class LoginIn(BaseModel):
 
 @app.get("/healthz")
 def healthz():
-    r = query("SELECT 1 AS ok")
-    return {"ok": bool(r and r[0].get("ok") == 1)}
+    try:
+        ok = q("SELECT 1 AS ok")
+        return {"ok": bool(ok and ok[0].get("ok") == 1)}
+    except Exception as e:
+        raise HTTPException(500, str(e))
 
 @app.post("/api/register")
 def register(p: RegisterIn):
-    if query("SELECT 1 FROM dbo.Usuarios WHERE Correo = ?", (p.correo,)):
-        raise HTTPException(status_code=409, detail="Correo ya registrado")
-    execute(
-        "INSERT INTO dbo.Usuarios (Nombre, Correo, PasswordHash) VALUES (?, ?, ?)",
-        (p.nombre, p.correo, hash_password(p.password))
-    )
+    # ¿Correo ya existe?
+    if q("SELECT 1 FROM dbo.Usuarios WHERE Correo = ?", (p.correo,)):
+        raise HTTPException(409, "Correo ya registrado")
+
+    pw_hash = bcrypt.hash(p.password)  # incluye salt
+    x("INSERT INTO dbo.Usuarios (Nombre, Correo, PasswordHash) VALUES (?, ?, ?)",
+      (p.nombre, p.correo, pw_hash))
     return {"message": "Usuario creado"}
 
 @app.post("/api/login")
 def login(p: LoginIn):
-    rows = query(
-        "SELECT ID_Usuario, Nombre, Correo, PasswordHash FROM dbo.Usuarios WHERE Correo = ?",
-        (p.correo,)
-    )
-    if not rows or not verify_password(p.password, rows[0]["PasswordHash"]):
-        raise HTTPException(status_code=401, detail="Credenciales inválidas")
-
+    rows = q("SELECT ID_Usuario, Nombre, Correo, PasswordHash FROM dbo.Usuarios WHERE Correo = ?",
+             (p.correo,))
+    if not rows or not bcrypt.verify(p.password, rows[0]["PasswordHash"]):
+        raise HTTPException(401, "Credenciales inválidas")
     u = rows[0]
-    # Si luego quieres JWT/cookies HttpOnly, aquí es donde se emiten
+    # Aquí podrías emitir JWT/cookie; por ahora devolvemos datos básicos
     return {"message": "Login OK", "user": {"id": u["ID_Usuario"], "nombre": u["Nombre"], "correo": u["Correo"]}}
