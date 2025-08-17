@@ -68,4 +68,8 @@ jobs:
         with:
           app-name: 'futocoback'
           slot-name: 'Production'
+
+      - name: Archive app
+  run: zip -r app.zip main.py db.py requirements.txt
+
           
