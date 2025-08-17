@@ -4,6 +4,7 @@
 
 name: Build and deploy Python app to Azure Web App - futocoback
 
+
 on:
   push:
     branches:
@@ -18,6 +19,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Archive app
+  run: zip -r app.zip main.py db.py requirements.txt
 
       - name: Set up Python version
         uses: actions/setup-python@v5
@@ -69,7 +73,6 @@ jobs:
           app-name: 'futocoback'
           slot-name: 'Production'
 
-      - name: Archive app
-  run: zip -r app.zip main.py db.py requirements.txt
 
           
+
