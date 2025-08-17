@@ -1,3 +1,4 @@
+# db.py
 import os, time, pyodbc
 from azure.identity import DefaultAzureCredential
 
@@ -36,8 +37,7 @@ def _get_conn(retries=3):
         try:
             if _conn:
                 with _conn.cursor() as c:
-                    c.execute("SELECT 1")
-                    c.fetchone()
+                    c.execute("SELECT 1"); c.fetchone()
                 return _conn
         except Exception:
             try: _conn.close()
@@ -48,10 +48,9 @@ def _get_conn(retries=3):
             return _conn
         except Exception:
             if i == retries - 1: raise
-            time.sleep(1.5 * (i + 1))
+            time.sleep(1.5*(i+1))
 
 def q(sql_text: str, params: tuple = ()):
-    """ SELECT → lista de dicts """
     conn = _get_conn()
     with conn.cursor() as cur:
         cur.execute(sql_text, params)
@@ -60,7 +59,6 @@ def q(sql_text: str, params: tuple = ()):
     return [dict(zip(cols, r)) for r in rows]
 
 def x(sql_text: str, params: tuple = ()):
-    """ INSERT/UPDATE/DELETE """
     conn = _get_conn()
     with conn.cursor() as cur:
         cur.execute(sql_text, params)
