@@ -5,3 +5,4 @@ azure-identity==1.17.1
 passlib[bcrypt]==1.7.4
 pydantic==2.9.0
 python-dotenv==1.0.1
+email-validator
